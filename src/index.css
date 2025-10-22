@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
-/* Keep it simple: avoid @apply on body in v4 */
+/* Global resets */
 html, body, #root { height: 100%; }
 
+/* Use plain CSS instead of @apply here */
 body {
-  background-color: #000;  /* instead of @apply bg-black */
-  color: #fff;             /* instead of @apply text-white */
+  background-color: #000;  /* bg-black */
+  color: #fff;             /* text-white */
 }
