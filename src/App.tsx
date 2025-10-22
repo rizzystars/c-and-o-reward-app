@@ -4,7 +4,7 @@ import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import SignOut from "./pages/SignOut";
 
-function Header(){
+function Header() {
   return (
     <header className="w-full bg-black border-b border-white/10">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -24,15 +24,15 @@ function Header(){
   );
 }
 
-function Footer(){
+function Footer() {
   return (
     <footer className="mt-auto border-t border-white/10">
       <div className="max-w-5xl mx-auto px-4 py-6 text-sm grid sm:grid-cols-3 gap-4">
         <div className="opacity-80">© 2025 C&O Coffee Collective. All rights reserved.</div>
         <div className="flex gap-4">
           <a href="#/privacy">Privacy & Data</a>
-          <a href="https://instagram.com" target="_blank">Instagram</a>
-          <a href="https://facebook.com" target="_blank">Facebook</a>
+          <a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram</a>
+          <a href="https://facebook.com" target="_blank" rel="noreferrer">Facebook</a>
         </div>
         <div className="justify-self-end">C&O</div>
       </div>
@@ -40,25 +40,25 @@ function Footer(){
   );
 }
 
-const Page = (t:string) => () => <div className="p-6">{t}</div>;
+const Page = (t: string) => () => <div className="p-6">{t}</div>;
 
-export default function App(){
+export default function App() {
   useSupabaseAuth();
   return (
     <div className="min-h-full flex flex-col">
       <Header />
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
-        <div className="mb-4 rounded-lg bg-white/10 p-3 text-2xl font-bold">Tailwind OK ?</div>
+        <div className="mb-4 rounded-lg bg-white/10 p-3 text-xl font-semibold">Tailwind OK</div>
         <Routes>
-          <Route path="/" element={<Page("Home")/>} />
-          <Route path="/menu" element={<Page("Menu (Square)")/>} />
-          <Route path="/cart" element={<Page("Cart")/>} />
-          <Route path="/checkout" element={<Page("Checkout")/>} />
-          <Route path="/points" element={<Page("Points & Rewards")/>} />
-          <Route path="/profile" element={<Page("Profile")/>} />
-          <Route path="/orders" element={<Page("Order History")/>} />
-          <Route path="/location" element={<Page("Location")/>} />
-          <Route path="/privacy" element={<Page("Privacy & Data")/>} />
+          <Route path="/" element={<Page("Home") />} />
+          <Route path="/menu" element={<Page("Menu (Square)") />} />
+          <Route path="/cart" element={<Page("Cart") />} />
+          <Route path="/checkout" element={<Page("Checkout") />} />
+          <Route path="/points" element={<Page("Points & Rewards") />} />
+          <Route path="/profile" element={<Page("Profile") />} />
+          <Route path="/orders" element={<Page("Order History") />} />
+          <Route path="/location" element={<Page("Location") />} />
+          <Route path="/privacy" element={<Page("Privacy & Data") />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/signout" element={<SignOut />} />
