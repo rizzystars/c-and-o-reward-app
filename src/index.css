@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/* Keep it simple: avoid @apply on body in v4 */
 html, body, #root { height: 100%; }
-body { @apply bg-black text-white; }
+
+body {
+  background-color: #000;  /* instead of @apply bg-black */
+  color: #fff;             /* instead of @apply text-white */
+}
