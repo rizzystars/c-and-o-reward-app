@@ -1,61 +1,68 @@
-import type { Handler } from "@netlify/functions";
+﻿import type { Handler } from "@netlify/functions";
 
+/**
+ * profile-upsert
+ * Validates the caller's Supabase access token, then upserts into public.profiles
+ * using the Netlify Service Role key (server-side).
+ *
+ * Required Netlify env vars:
+ * - SUPABASE_URL
+ * - SUPABASE_SERVICE_ROLE_KEY
+ */
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 async function getUserFromSupabase(accessToken: string) {
-  const res = await fetch(SUPABASE_URL + "/auth/v1/user", {
-    headers: { Authorization: "Bearer " + accessToken },
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error("auth failed: " + res.status + " " + text);
+    throw new Error(`auth failed: ${res.status} ${text}`);
   }
   return res.json();
 }
 
-export const handler: Handler = async (evt) => {
+export const handler: Handler = async (event) => {
   try {
-    if (evt.httpMethod !== "POST") {
+    if (event.httpMethod !== "POST") {
       return { statusCode: 405, body: "Method not allowed" };
     }
-
-    const auth = evt.headers["authorization"] || evt.headers["Authorization"];
-    if (!auth || !auth.startsWith("Bearer ")) {
-      return { statusCode: 401, body: "Missing bearer" };
+    const authz = (event.headers.authorization || (event.headers.Authorization as string | undefined)) as string | undefined;
+    if (!authz || !authz.toLowerCase().startsWith("bearer ")) {
+      return { statusCode: 401, body: "Missing bearer token" };
     }
-    const token = auth.slice("Bearer ".length);
+    const accessToken = authz.split(" ")[1];
 
-    const { first_name } = JSON.parse(evt.body || "{}") as { first_name?: string };
-    if (!first_name) return { statusCode: 400, body: "Missing first_name" };
+    const me = await getUserFromSupabase(accessToken);
+    const uid: string = me?.id;
+    if (!uid) return { statusCode: 401, body: "No user" };
 
-    const user = await getUserFromSupabase(token);
-    const { id, email } = user;
+    const body = JSON.parse(event.body || "{}");
+    const first_name = (body.first_name || "").toString().slice(0, 100).trim();
 
-    // Upsert into users_profile (requires users_profile.user_id to be primary key or unique)
-    const upsertRes = await fetch(SUPABASE_URL + "/rest/v1/users_profile", {
+    const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         "apikey": SERVICE_ROLE,
-        "Authorization": "Bearer " + SERVICE_ROLE,
-        "Prefer": "resolution=merge-duplicates,return=representation"
+        "Authorization": `Bearer ${SERVICE_ROLE}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates",
       },
-      body: JSON.stringify({
-        user_id: id,
+      body: JSON.stringify([{
+        id: uid,
         first_name,
-        email,
         updated_at: new Date().toISOString(),
-      }),
+      }]),
     });
 
     if (!upsertRes.ok) {
       const t = await upsertRes.text();
-      throw new Error("upsert failed: " + upsertRes.status + " " + t);
+      throw new Error(`upsert failed: ${upsertRes.status} ${t}`);
     }
 
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   } catch (e: any) {
-    return { statusCode: 400, body: e.message || "error" };
+    return { statusCode: 400, body: e?.message || "error" };
   }
 };
