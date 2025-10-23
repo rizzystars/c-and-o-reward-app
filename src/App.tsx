@@ -61,11 +61,14 @@ export default function App() {
           <Route path="/menu" element={<Page("Menu (Square)") />} />
           <Route path="/cart" element={<Page("Cart") />} />
           <Route path="/checkout" element={<Page("Checkout") />} />
-          <Route path="/points" element={<Page("Points & Rewards") />} />
+
+          {/* Real Points page */}
+          <Route path="/points" element={<Points />} />
+
+          {/* Placeholders you can replace later */}
           <Route path="/profile" element={<Page("Profile") />} />
           <Route path="/orders" element={<Page("Order History") />} />
           <Route path="/location" element={<Page("Location") />} />
-	  <Route path="/points" element={<Points />} />
           <Route path="/privacy" element={<Page("Privacy & Data") />} />
 
           <Route path="/signin" element={<SignIn />} />
