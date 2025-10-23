@@ -7,8 +7,10 @@ import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import SignOut from "./pages/SignOut";
 
-// (optional placeholders until you add real pages)
-const Page = (t: string) => () => <div className="p-6">{t}</div>;
+// Simple placeholder component
+function SimplePage({ text }: { text: string }) {
+  return <div className="p-6">{text}</div>;
+}
 
 // --- Header sub-component that switches links based on auth state
 function AuthNav() {
@@ -57,19 +59,19 @@ export default function App() {
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
         <div className="mb-4 rounded-lg bg-white/10 p-3 text-xl font-semibold">Tailwind OK</div>
         <Routes>
-          <Route path="/" element={<Page("Home") />} />
-          <Route path="/menu" element={<Page("Menu (Square)") />} />
-          <Route path="/cart" element={<Page("Cart") />} />
-          <Route path="/checkout" element={<Page("Checkout") />} />
+          <Route path="/" element={<SimplePage text="Home" />} />
+          <Route path="/menu" element={<SimplePage text="Menu (Square)" />} />
+          <Route path="/cart" element={<SimplePage text="Cart" />} />
+          <Route path="/checkout" element={<SimplePage text="Checkout" />} />
 
           {/* Real Points page */}
           <Route path="/points" element={<Points />} />
 
           {/* Placeholders you can replace later */}
-          <Route path="/profile" element={<Page("Profile") />} />
-          <Route path="/orders" element={<Page("Order History") />} />
-          <Route path="/location" element={<Page("Location") />} />
-          <Route path="/privacy" element={<Page("Privacy & Data") />} />
+          <Route path="/profile" element={<SimplePage text="Profile" />} />
+          <Route path="/orders" element={<SimplePage text="Order History" />} />
+          <Route path="/location" element={<SimplePage text="Location" />} />
+          <Route path="/privacy" element={<SimplePage text="Privacy & Data" />} />
 
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
