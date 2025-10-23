@@ -1,50 +1,118 @@
-import { useState, useEffect } from "react";
+﻿import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { Link } from "react-router-dom";
+import AuthLayout from "./AuthLayout";
 
 export default function SignUp() {
   const [first, setFirst] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  async function sendLink() {
-    if (!first || !email) { setNotice("First name and email required."); return; }
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin + "/#/" }
-    });
-    if (error) setNotice(error.message);
-    else setNotice("Check your email to verify and sign in.");
-    localStorage.setItem("pending_first_name", first);
-  }
+  async function handleSignUp(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: { first_name: first.trim() }
+        }
+      });
+      if (error) throw error;
 
-  useEffect(() => {
-    const sub = supabase.auth.onAuthStateChange(async (_e, sess) => {
-      if (sess && sess.access_token) {
-        const fn = localStorage.getItem("pending_first_name");
-        if (fn) {
+      // If we already have a session (email confirmation off), upsert profile now.
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+        if (token && first.trim()) {
           await fetch("/.netlify/functions/profile-upsert", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": "Bearer " + sess.access_token
+              "Authorization": "Bearer " + token,
             },
-            body: JSON.stringify({ first_name: fn })
+            body: JSON.stringify({ first_name: first.trim() }),
           });
-          localStorage.removeItem("pending_first_name");
         }
+      } catch {}
+
+      if (!data.session) {
+        setNotice("Check your email to confirm your account. Then sign in.");
+      } else {
+        // Signed in immediately
+        location.hash = "/points";
       }
-    });
-    return () => { sub.data.subscription.unsubscribe(); };
-  }, []);
+    } catch (e:any) {
+      setError(e?.message || "Could not create account.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className="max-w-md space-y-3">
-      <input className="bg-white/10 px-3 py-2 rounded w-full" placeholder="First name"
-        value={first} onChange={(e) => setFirst(e.target.value)} />
-      <input className="bg-white/10 px-3 py-2 rounded w-full" placeholder="Email"
-        value={email} onChange={(e) => setEmail(e.target.value)} />
-      <button className="bg-white/10 px-4 py-2 rounded" onClick={sendLink}>Sign up</button>
-      {notice && <div className="text-sm opacity-80">{notice}</div>}
-    </div>
+    <AuthLayout title="Create your account" subtitle="Earn points with every order.">
+      {(notice || error) && (
+        <div className={"rounded-xl p-3 text-sm " + (error ? "bg-red-500/15 border border-red-500/30" : "bg-emerald-500/10 border border-emerald-500/30")}>
+          {error || notice}
+        </div>
+      )}
+
+      <form onSubmit={handleSignUp} className="space-y-4">
+        <label className="block text-sm">
+          <span className="opacity-80">First name</span>
+          <input
+            type="text"
+            required
+            className="mt-1 w-full rounded-xl bg-black/50 border border-white/10 px-4 py-3 outline-none focus:border-white/25"
+            placeholder="Jane"
+            value={first}
+            onChange={(e) => setFirst(e.target.value)}
+            autoComplete="given-name"
+          />
+        </label>
+
+        <label className="block text-sm">
+          <span className="opacity-80">Email address</span>
+          <input
+            type="email"
+            required
+            className="mt-1 w-full rounded-xl bg-black/50 border border-white/10 px-4 py-3 outline-none focus:border-white/25"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+        </label>
+
+        <label className="block text-sm">
+          <span className="opacity-80">Password</span>
+          <input
+            type="password"
+            required
+            minLength={6}
+            className="mt-1 w-full rounded-xl bg-black/50 border border-white/10 px-4 py-3 outline-none focus:border-white/25"
+            placeholder="Create a password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+        </label>
+
+        <button
+          disabled={busy || !first.trim() || !email.trim() || password.length < 6}
+          className="w-full rounded-xl px-4 py-3 font-medium bg-white text-black hover:bg-white/90 disabled:opacity-60"
+        >
+          {busy ? "Creating…" : "Create account"}
+        </button>
+      </form>
+
+      <p className="text-sm opacity-80 pt-2">
+        Already have an account? <Link to="/signin" className="underline">Sign in</Link>
+      </p>
+    </AuthLayout>
   );
 }

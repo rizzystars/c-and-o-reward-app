@@ -3,11 +3,10 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../state/auth";
 
 /**
- * Profile
- * - Loads name/email from Supabase (public.profiles + auth.user)
- * - Lets user edit first name (saved through Netlify function with service role)
- * - Lets user change email (Supabase sends confirmation to the NEW address)
- * - Clean, mobile-first card layout
+ * Profile (users_profile)
+ * - Load first_name + email
+ * - Edit first_name via Netlify function (service role)
+ * - Edit email (confirmation mail) and password (immediate)
  */
 export default function Profile() {
   const { user } = useAuth();
@@ -15,10 +14,11 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [firstName, setFirstName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [showAccount, setShowAccount] = useState(false);
   const [notice, setNotice] = useState<string>("");
   const [error, setError] = useState<string>("");
 
-  // Derive a friendly greeting from metadata or email prefix
   const fallbackName = useMemo(() => {
     const metaName = (user?.user_metadata?.full_name || user?.user_metadata?.name || "").trim();
     if (metaName) return metaName.split(" ")[0];
@@ -30,21 +30,17 @@ export default function Profile() {
     let alive = true;
     async function load() {
       if (!user) return;
-      setLoading(true);
-      setError("");
-      setNotice("");
-
+      setLoading(true); setError(""); setNotice("");
       try {
         const { data: prof, error: pErr } = await supabase
-          .from("profiles")
+          .from("users_profile")
           .select("first_name")
-          .eq("id", user.id)
+          .eq("user_id", user.id)
           .maybeSingle();
-
         if (pErr) throw pErr;
         setFirstName((prof?.first_name as string) || fallbackName || "");
         setEmail(user.email || "");
-      } catch (e: any) {
+      } catch (e:any) {
         setError(e?.message || "Failed to load profile.");
       } finally {
         if (alive) setLoading(false);
@@ -56,28 +52,19 @@ export default function Profile() {
 
   async function saveProfile() {
     if (!user) return;
-    setSaving(true);
-    setError("");
-    setNotice("");
+    setSaving(true); setError(""); setNotice("");
     try {
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error("Not authenticated");
-
       const res = await fetch("/.netlify/functions/profile-upsert", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token,
-        },
-        body: JSON.stringify({ first_name: firstName }),
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify({ first_name: firstName.trim() }),
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "Save failed");
-      }
+      if (!res.ok) throw new Error(await res.text());
       setNotice("Saved!");
-    } catch (e: any) {
+    } catch (e:any) {
       setError(e?.message || "Could not save your profile.");
     } finally {
       setSaving(false);
@@ -86,9 +73,7 @@ export default function Profile() {
 
   async function changeEmail() {
     if (!user) return;
-    setSaving(true);
-    setError("");
-    setNotice("");
+    setSaving(true); setError(""); setNotice("");
     try {
       const { data, error } = await supabase.auth.updateUser({ email: email.trim() });
       if (error) throw error;
@@ -97,8 +82,23 @@ export default function Profile() {
       } else {
         setNotice("Email updated.");
       }
-    } catch (e: any) {
+    } catch (e:any) {
       setError(e?.message || "Email update failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function changePassword() {
+    if (!user || !password.trim()) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const { error } = await supabase.auth.updateUser({ password: password });
+      if (error) throw error;
+      setPassword("");
+      setNotice("Password updated.");
+    } catch (e:any) {
+      setError(e?.message || "Password update failed.");
     } finally {
       setSaving(false);
     }
@@ -115,14 +115,22 @@ export default function Profile() {
 
   return (
     <div className="mx-auto w-full max-w-md p-4 sm:p-6 space-y-6">
-      <header className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-lg font-semibold">
-          { (firstName || fallbackName).slice(0,1).toUpperCase() }
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-lg font-semibold">
+            {(firstName || fallbackName).slice(0,1).toUpperCase()}
+          </div>
+          <div>
+            <div className="text-sm opacity-80">Welcome</div>
+            <div className="text-xl font-semibold">{firstName || fallbackName}</div>
+          </div>
         </div>
-        <div>
-          <div className="text-sm opacity-80">Welcome</div>
-          <div className="text-xl font-semibold">{firstName || fallbackName}</div>
-        </div>
+        <button
+          className="text-sm rounded-lg px-3 py-2 border border-white/10 hover:bg-white/10"
+          onClick={() => setShowAccount(v => !v)}
+        >
+          {showAccount ? "Close" : "Edit account"}
+        </button>
       </header>
 
       {(notice || error) && (
@@ -131,6 +139,7 @@ export default function Profile() {
         </div>
       )}
 
+      {/* First name */}
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
         <div className="text-base font-semibold">Your Info</div>
         <label className="block text-sm opacity-80">First Name</label>
@@ -149,24 +158,51 @@ export default function Profile() {
         </button>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-        <div className="text-base font-semibold">Email</div>
-        <div className="text-sm opacity-80">Change your sign-in email. Supabase will send a confirmation to the new address.</div>
-        <input
-          type="email"
-          className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="name@example.com"
-        />
-        <button
-          className="w-full rounded-xl px-4 py-2 bg-white/10 hover:bg-white/15 transition disabled:opacity-50"
-          disabled={saving || loading || !email.trim()}
-          onClick={changeEmail}
-        >
-          {saving ? "Working..." : "Update Email"}
-        </button>
-      </section>
+      {/* Account settings: email + password */}
+      {showAccount && (
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
+          <div className="text-base font-semibold">Account settings</div>
+
+          <div className="space-y-2">
+            <label className="block text-sm opacity-80">Email</label>
+            <input
+              type="email"
+              className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+            />
+            <button
+              className="w-full rounded-xl px-4 py-2 bg-white/10 hover:bg-white/15 transition disabled:opacity-50"
+              disabled={saving || loading || !email.trim()}
+              onClick={changeEmail}
+            >
+              {saving ? "Working..." : "Update Email"}
+            </button>
+            <div className="text-xs opacity-70">We’ll email a confirmation to the new address.</div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm opacity-80">New password</label>
+            <input
+              type="password"
+              className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              minLength={6}
+            />
+            <button
+              className="w-full rounded-xl px-4 py-2 bg-white/10 hover:bg-white/15 transition disabled:opacity-50"
+              disabled={saving || loading || password.length < 6}
+              onClick={changePassword}
+            >
+              {saving ? "Working..." : "Update Password"}
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <QuickCard title="Points" desc="See balance & activity" to="/points" />
@@ -178,10 +214,7 @@ export default function Profile() {
 
 function QuickCard({ title, desc, to }: { title: string; desc: string; to: string }) {
   return (
-    <a
-      href={`#${to}`}
-      className="rounded-2xl bg-white/5 border border-white/10 p-4 hover:bg-white/10 transition"
-    >
+    <a href={`#${to}`} className="rounded-2xl bg-white/5 border border-white/10 p-4 hover:bg-white/10 transition">
       <div className="text-base font-semibold">{title}</div>
       <div className="text-sm opacity-80">{desc}</div>
     </a>
