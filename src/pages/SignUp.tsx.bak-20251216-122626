@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Link } from "react-router-dom";
 import AuthLayout from "./AuthLayout";
@@ -6,7 +6,7 @@ import AuthLayout from "./AuthLayout";
 function redirectUrl() {
   const envBase = (import.meta as any).env?.APP_BASE_URL || (window as any).APP_BASE_URL;
   const base = (envBase && typeof envBase === "string") ? envBase : window.location.origin;
-  return base.replace(/\/+$/, "") + "/#/auth/callback";
+  return base.replace(/\/+$/, "") + "/auth/callback";
 }
 
 export default function SignUp() {
@@ -108,4 +108,3 @@ export default function SignUp() {
     </AuthLayout>
   );
 }
-

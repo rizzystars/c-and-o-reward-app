@@ -1,0 +1,98 @@
+﻿import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { useToastStore } from "../components/ui/Toast";
+import { triggerCoffeeRain } from "../components/effects/CoffeeRain";
+
+// HashRouter + Supabase:
+// - OAuth/sign-in links may produce a session immediately.
+// - Password reset links often arrive with tokens in the URL/hash.
+// This page handles both and routes accordingly.
+export default function AuthCallback() {
+  const nav = useNavigate();
+  const push = useToastStore((s) => s.push);
+
+  useEffect(() => {
+    let alive = true;
+
+    const parseParams = () => {
+      const href = window.location.href || "";
+      const hash = window.location.hash || "";
+      const search = window.location.search || "";
+
+      // Supabase may put params in either search or hash depending on flow.
+      const q1 = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+      const q2 = new URLSearchParams(hash.includes("?") ? hash.split("?")[1] : hash.replace(/^#/, ""));
+      const get = (k: string) => q1.get(k) ?? q2.get(k);
+
+      return {
+        type: get("type"),
+        access_token: get("access_token"),
+        refresh_token: get("refresh_token"),
+      };
+    };
+
+    (async () => {
+      const p = parseParams();
+
+      // If this is a password recovery link, ensure the session is established,
+      // then route to the reset-password screen.
+      if (p.type === "recovery" && p.access_token && p.refresh_token) {
+        try {
+          await supabase.auth.setSession({
+            access_token: p.access_token,
+            refresh_token: p.refresh_token,
+          });
+          if (!alive) return;
+
+          push({ text: "Reset link verified. Set a new password.", kind: "success" });
+          nav("/reset-password", { replace: true });
+          return;
+        } catch {
+          if (!alive) return;
+          push({ text: "Reset link could not be verified. Request a new reset email.", kind: "error", ttl: 4500 });
+          nav("/signin", { replace: true });
+          return;
+        }
+      }
+
+      // Otherwise, treat as normal sign-in callback.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!alive) return;
+
+      if (session) {
+        const pending = localStorage.getItem("pending_first_name");
+        if (pending) {
+          try {
+            const token = session.access_token;
+            await fetch("/.netlify/functions/profile-upsert", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token,
+              },
+              body: JSON.stringify({ first_name: pending }),
+            });
+          } catch {}
+          localStorage.removeItem("pending_first_name");
+        }
+
+        push({ text: "Signed in — welcome!", kind: "success" });
+        triggerCoffeeRain({ count: 40, duration: 1500 });
+        setTimeout(() => nav("/points", { replace: true }), 300);
+      } else {
+        push({ text: "Could not complete sign-in. Try the link again.", kind: "error", ttl: 4500 });
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [nav, push]);
+
+  return (
+    <div className="min-h-[60vh] grid place-items-center">
+      <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-5">
+        Completing sign-in...
+      </div>
+    </div>
+  );
+}

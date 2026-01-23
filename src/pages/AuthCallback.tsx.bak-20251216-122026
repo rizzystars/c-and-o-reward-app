@@ -1,0 +1,53 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { useToastStore } from "../components/ui/Toast";
+import { triggerCoffeeRain } from "../components/effects/CoffeeRain";
+
+export default function AuthCallback(){
+  const nav = useNavigate();
+  const push = useToastStore(s => s.push);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!alive) return;
+
+      if (session) {
+        // If SignUp saved a pending first name, apply it now via server function
+        const pending = localStorage.getItem("pending_first_name");
+        if (pending) {
+          try {
+            const token = session.access_token;
+            await fetch("/.netlify/functions/profile-upsert", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token,
+              },
+              body: JSON.stringify({ first_name: pending }),
+            });
+          } catch {}
+          localStorage.removeItem("pending_first_name");
+        }
+
+        push({ text: "Signed in — welcome!", kind: "success" });
+        triggerCoffeeRain({ count: 40, duration: 1500 });
+        setTimeout(() => nav("/points", { replace: true }), 300);
+      } else {
+        push({ text: "Could not complete sign-in. Try the link again.", kind: "error", ttl: 4500 });
+      }
+    })();
+    return () => { alive = false; };
+  }, [nav, push]);
+
+  return (
+    <div className="min-h-[60vh] grid place-items-center">
+      <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-5">
+        Completing sign-in…
+      </div>
+    </div>
+  );
+}

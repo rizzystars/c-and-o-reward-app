@@ -1,0 +1,80 @@
+﻿import type { Handler } from "@netlify/functions";
+
+/**
+ * profile-upsert
+ * Validates the caller's Supabase access token, then upserts into public.users_profile
+ * using the Netlify Service Role key (server-side).
+ *
+ * Env:
+ * - SUPABASE_URL
+ * - SUPABASE_SERVICE_ROLE_KEY
+ */
+
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+async function getUserFromSupabase(accessToken: string) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`auth failed: ${res.status} ${text}`);
+  }
+  return res.json(); // { id, email, ... }
+}
+
+export const handler: Handler = async (event) => {
+  try {
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method not allowed" };
+    }
+    if (!SUPABASE_URL || !SERVICE_ROLE) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Missing SUPABASE env" }) };
+    }
+
+    const authz = (event.headers.authorization || event.headers.Authorization || "") as string;
+    if (!authz.toLowerCase().startsWith("bearer ")) {
+      return { statusCode: 401, body: JSON.stringify({ error: "Missing bearer token" }) };
+    }
+    const accessToken = authz.split(" ")[1];
+
+    const me = await getUserFromSupabase(accessToken);
+    const uid: string | undefined = me?.id;
+    const email: string | undefined = me?.email;
+    if (!uid) {
+      return { statusCode: 401, body: JSON.stringify({ error: "No user" }) };
+    }
+
+    const body = JSON.parse(event.body || "{}");
+    const first_name = (body.first_name || "").toString().slice(0, 100).trim();
+
+    const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/users_profile`, {
+      method: "POST",
+      headers: {
+        apikey: SERVICE_ROLE,
+        Authorization: `Bearer ${SERVICE_ROLE}`,
+        "Content-Type": "application/json",
+        // merge-duplicates = upsert based on PK/unique constraints
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify([
+        {
+          user_id: uid,
+          first_name,
+          ...(email ? { email } : {}),
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+    });
+
+    if (!upsertRes.ok) {
+      const t = await upsertRes.text();
+      return { statusCode: 400, body: JSON.stringify({ error: "upsert failed", detail: t }) };
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+  } catch (e: any) {
+    return { statusCode: 400, body: JSON.stringify({ error: e?.message || "error" }) };
+  }
+};
