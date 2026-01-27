@@ -2,3 +2,5 @@ node_modules
 dist
 .env
 .netlify
+env-usage.txt
+netlify/functions/*.bak.*
