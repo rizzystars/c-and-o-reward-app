@@ -1,4 +1,4 @@
-ï»¿import type { Handler } from "@netlify/functions";
+import type { Handler } from "@netlify/functions";
 import crypto from "crypto";
 
 const SIG_HEADER = "x-square-hmacsha256-signature";
@@ -281,7 +281,34 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  // 10) orders_shadow best-effort
+      // 9.5) Mint Starbucks-style rewards (entitlements only — no point burn)
+    {
+      const rewards = await fetchJson(
+        `${SUPABASE_URL}/rest/v1/rewards_catalog?active=eq.true&select=id,cost_points`,
+        { method: "GET", headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } }
+      );
+
+      if (rewards.ok && Array.isArray(rewards.json)) {
+        for (const r of rewards.json) {
+          if (newPoints >= r.cost_points) {
+            const code = `RW-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+
+            await fetchJson(`${SUPABASE_URL}/rest/v1/reward_coupons?on_conflict=user_id,reward_id`, {
+              method: "POST",
+              headers: { ...sbHeaders },
+              
+              body: JSON.stringify([{
+                user_id: userId,
+                reward_id: r.id,
+                code
+              }])
+            });
+          }
+        }
+      }
+    }
+
+    // 10) orders_shadow best-effort
   {
     const os = await fetchJson(`${SUPABASE_URL}/rest/v1/orders_shadow`, {
       method: "POST",
@@ -315,3 +342,5 @@ export const handler: Handler = async (event) => {
     }),
   };
 };
+
+

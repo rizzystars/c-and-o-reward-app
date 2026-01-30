@@ -59,3 +59,8 @@ create policy if not exists "users can insert own reward coupons"
   on public.reward_coupons
   for insert
   with check (auth.uid() = user_id);
+
+-- Ensure idempotent reward minting
+create unique index if not exists reward_coupons_user_reward_unique
+on public.reward_coupons (user_id, reward_id);
+
