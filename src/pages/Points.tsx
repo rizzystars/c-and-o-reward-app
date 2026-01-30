@@ -4,12 +4,11 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../state/auth";
 
 type Balance = { points: number; updated_at: string | null } | null;
-type LedgerItem = { id: string; change: number; source: string | null; created_at: string };
+type LedgerItem = { id: string; delta_points: number; reason: string | null; created_at: string };
 
 const REWARDS = [
-  { id: "free-espresso-shot", name: "Free 2oz Espresso Shot", cost: 50 },
-  { id: "free-latte", name: "Free Latte", cost: 100 },
-  { id: "merch-5-off", name: "$5 Off Merch", cost: 120 },
+  { id: "rwd_100_brewed_12oz", name: "Free Drip Coffee (12oz)", cost: 100 },
+  { id: "rwd_200_latte_12oz", name: "Free Latte (12oz)", cost: 200 },
 ];
 
 export default function Points() {
@@ -44,7 +43,7 @@ export default function Points() {
             .maybeSingle(),
           supabase
             .from("loyalty_ledger")
-            .select("id,change,source,created_at")
+            .select("id,delta_points,reason,created_at")
             .order("created_at", { ascending: false })
             .limit(50),
         ]);
@@ -82,8 +81,8 @@ export default function Points() {
     () =>
       ledger.map((item) => ({
         id: item.id,
-        delta_points: item.change,
-        reason: item.source,
+        delta_points: item.delta_points,
+        reason: item.reason,
         created_at: item.created_at,
       })),
     [ledger]

@@ -13,9 +13,8 @@ type RewardCoupon = {
 };
 
 const REWARD_LABELS: Record<string, string> = {
-  "free-espresso-shot": "Free Espresso Shot",
-  "free-latte": "Free Latte",
-  "merch-5-off": "$5 Off Merch",
+  "rwd_100_brewed_12oz": "Free Drip Coffee (12oz)",
+  "rwd_200_latte_12oz": "Free Latte (12oz)",
 };
 
 export default function MyRewards() {

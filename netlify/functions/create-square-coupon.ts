@@ -20,20 +20,15 @@ const REWARD_CONFIG: Record<
     percent?: number;
   }
 > = {
-  "free-espresso-shot": {
-    costPoints: 50,
-    discountType: "amount",
-    amountCents: 400,
-  },
-  "free-latte": {
+  "rwd_100_brewed_12oz": {
     costPoints: 100,
     discountType: "amount",
-    amountCents: 800,
+    amountCents: 300,
   },
-  "merch-5-off": {
-    costPoints: 120,
+  "rwd_200_latte_12oz": {
+    costPoints: 200,
     discountType: "amount",
-    amountCents: 500,
+    amountCents: 450,
   },
 };
 
@@ -110,8 +105,8 @@ export const handler: Handler = async (event) => {
 
     const { error: ledgerError } = await supabase.from("loyalty_ledger").insert({
       user_id,
-      change: -rewardCfg.costPoints,
-      source: `redeem:${reward_id}`,
+      delta_points: -rewardCfg.costPoints,
+      reason: `redeem:${reward_id}`,
     });
 
     if (ledgerError) {
